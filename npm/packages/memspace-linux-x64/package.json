@@ -1,7 +1,11 @@
 {
   "name": "memspace-linux-x64",
-  "version": "0.1.0",
-  "os": ["linux"],
-  "cpu": ["x64"],
+  "version": "0.1.5",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "license": "MIT"
 }

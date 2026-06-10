@@ -77,6 +77,9 @@ jobs:
     needs: build
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       
@@ -105,7 +108,7 @@ jobs:
         run: |
           for pkg in memspace-linux-x64 memspace-linux-arm64 memspace-darwin-x64 memspace-darwin-arm64 memspace-win32-x64; do
             cd npm/packages/$pkg
-            npm publish --access public
+            npm publish --access public --provenance
             cd ../../..
           done
         env:
@@ -114,6 +117,6 @@ jobs:
       - name: Publish root package
         run: |
           cd npm
-          npm publish --access public
+          npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}

@@ -1,7 +1,11 @@
 {
   "name": "memspace-linux-arm64",
-  "version": "0.1.0",
-  "os": ["linux"],
-  "cpu": ["arm64"],
+  "version": "0.1.5",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
   "license": "MIT"
 }
