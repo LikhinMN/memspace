@@ -179,3 +179,15 @@ SymbolList* ms_index_query_callers(Index* idx, const char* name) {
     sqlite3_finalize(stmt);
     return list;
 }
+
+int ms_index_delete_file_symbols(Index* idx, const char* file) {
+    if (!idx || !idx->db || !file) return -1;
+    const char *sql = "DELETE FROM symbols WHERE file = ?;";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) return -1;
+    sqlite3_bind_text(stmt, 1, file, -1, SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return (rc == SQLITE_DONE) ? 0 : -1;
+}

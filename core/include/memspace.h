@@ -53,6 +53,7 @@ int ms_index_insert_symbol(Index* idx, Symbol* sym);
 int ms_index_insert_relationship(Index* idx, int from_id, int to_id, const char* type);
 SymbolList* ms_index_query_symbol(Index* idx, const char* name);
 SymbolList* ms_index_query_callers(Index* idx, const char* name);
+int ms_index_delete_file_symbols(Index* idx, const char* file);
 
 /* Internal usage */
 SymbolList* ms_extract_symbols(TSTree* tree, TSLanguage *lang, const char* file_path, const char* source_code);
