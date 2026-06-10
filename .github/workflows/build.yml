@@ -26,7 +26,7 @@ jobs:
             pkg: memspace-darwin-arm64
           - os: windows-latest
             arch: x64
-            pkg: memspace-win32-x64
+            pkg: memspace-windows-x64
     
     runs-on: ${{ matrix.os }}
     
@@ -95,8 +95,8 @@ jobs:
             chmod 755 npm/packages/$pkg/bin/memspace
           done
           
-          mkdir -p npm/packages/memspace-win32-x64/bin
-          cp artifacts/memspace-win32-x64/memspace.exe npm/packages/memspace-win32-x64/bin/memspace.exe
+          mkdir -p npm/packages/memspace-windows-x64/bin
+          cp artifacts/memspace-windows-x64/memspace.exe npm/packages/memspace-windows-x64/bin/memspace.exe
           
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -106,10 +106,11 @@ jobs:
           
       - name: Publish optional dependencies
         run: |
-          for pkg in memspace-linux-x64 memspace-linux-arm64 memspace-darwin-x64 memspace-darwin-arm64 memspace-win32-x64; do
+          for pkg in memspace-linux-x64 memspace-linux-arm64 memspace-darwin-x64 memspace-darwin-arm64 memspace-windows-x64; do
             cd npm/packages/$pkg
             npm publish --access public --provenance
             cd ../../..
+            sleep 10
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}

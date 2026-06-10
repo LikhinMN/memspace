@@ -10,7 +10,7 @@ const platformMap = {
   'linux_arm64': 'memspace-linux-arm64',
   'darwin_x64': 'memspace-darwin-x64',
   'darwin_arm64': 'memspace-darwin-arm64',
-  'win32_x64': 'memspace-win32-x64'
+  'win32_x64': 'memspace-windows-x64'
 };
 
 const pkgName = platformMap[`${platform}_${arch}`];
