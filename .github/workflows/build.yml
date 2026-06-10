@@ -45,8 +45,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
         run: make CC=aarch64-linux-gnu-gcc
         
-      - name: Build (Unix non-arm64)
-        if: matrix.os != 'windows-latest' && matrix.arch != 'arm64'
+      - name: Build (Other Unix)
+        if: matrix.os != 'windows-latest' && !(matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64')
         run: make
         
       - name: Build (Windows)
