@@ -6,33 +6,41 @@
 void ms_symbol_list_free(SymbolList* list) {
     if (!list) return;
     for (int i = 0; i < list->count; i++) {
-        free(list->symbols[i].name);
-        free(list->symbols[i].file);
+        if (list->symbols[i].name) free(list->symbols[i].name);
+        if (list->symbols[i].file) free(list->symbols[i].file);
         if (list->symbols[i].signature) free(list->symbols[i].signature);
     }
-    free(list->symbols);
+    if (list->symbols) free(list->symbols);
     free(list);
 }
 
-static void add_symbol(SymbolList *list, Symbol sym) {
+static int add_symbol(SymbolList *list, Symbol sym) {
     if (list->count >= list->capacity) {
-        list->capacity = list->capacity == 0 ? 16 : list->capacity * 2;
-        list->symbols = realloc(list->symbols, list->capacity * sizeof(Symbol));
+        int new_cap = list->capacity == 0 ? 16 : list->capacity * 2;
+        Symbol *new_syms = realloc(list->symbols, new_cap * sizeof(Symbol));
+        if (!new_syms) return -1;
+        list->symbols = new_syms;
+        list->capacity = new_cap;
     }
     list->symbols[list->count++] = sym;
+    return 0;
 }
 
-static char *extract_node_string(TSNode node, const char *source_code) {
+static char *extract_node_string(TSNode node, const char *source_code, uint32_t source_len) {
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
+    if (start > source_len) start = source_len;
+    if (end > source_len) end = source_len;
+    if (start > end) return NULL;
     uint32_t len = end - start;
     char *str = malloc(len + 1);
+    if (!str) return NULL;
     strncpy(str, source_code + start, len);
     str[len] = '\0';
     return str;
 }
 
-static void walk_tree(TSNode node, const char *file_path, const char *source_code, SymbolList *list) {
+static void walk_tree(TSNode node, const char *file_path, const char *source_code, uint32_t source_len, SymbolList *list) {
     if (ts_node_is_null(node)) return;
 
     const char *type = ts_node_type(node);
@@ -62,13 +70,18 @@ static void walk_tree(TSNode node, const char *file_path, const char *source_cod
             }
 
             if (strcmp(ts_node_type(name_node), "identifier") == 0) {
-                Symbol sym;
-                sym.name = extract_node_string(name_node, source_code);
+                Symbol sym = {0};
+                sym.name = extract_node_string(name_node, source_code, source_len);
+                sym.signature = extract_node_string(signature_node, source_code, source_len);
                 sym.kind = SYMBOL_FUNCTION;
                 sym.file = strdup(file_path);
                 sym.line = ts_node_start_point(node).row + 1;
-                sym.signature = extract_node_string(signature_node, source_code);
-                add_symbol(list, sym);
+                
+                if (!sym.name || !sym.signature || !sym.file || add_symbol(list, sym) != 0) {
+                    if (sym.name) free(sym.name);
+                    if (sym.signature) free(sym.signature);
+                    if (sym.file) free(sym.file);
+                }
             }
         }
     }
@@ -76,14 +89,15 @@ static void walk_tree(TSNode node, const char *file_path, const char *source_cod
     uint32_t child_count = ts_node_child_count(node);
     for (uint32_t i = 0; i < child_count; i++) {
         TSNode child = ts_node_child(node, i);
-        walk_tree(child, file_path, source_code, list);
+        walk_tree(child, file_path, source_code, source_len, list);
     }
 }
 
-SymbolList* ms_extract_symbols(TSTree* tree, TSLanguage *lang, const char* file_path, const char* source_code) {
+SymbolList* ms_extract_symbols(TSTree* tree, TSLanguage *lang, const char* file_path, const char* source_code, uint32_t source_len) {
     (void)lang;
     SymbolList *list = calloc(1, sizeof(SymbolList));
+    if (!list) return NULL;
     TSNode root_node = ts_tree_root_node(tree);
-    walk_tree(root_node, file_path, source_code, list);
+    walk_tree(root_node, file_path, source_code, source_len, list);
     return list;
 }

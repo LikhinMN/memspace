@@ -44,6 +44,10 @@ Index* ms_index_open(const char* db_path) {
     }
 
     Index *idx = malloc(sizeof(Index));
+    if (!idx) {
+        sqlite3_close(db);
+        return NULL;
+    }
     idx->db = db;
     return idx;
 }
@@ -52,6 +56,18 @@ void ms_index_close(Index* idx) {
     if (idx) {
         if (idx->db) sqlite3_close(idx->db);
         free(idx);
+    }
+}
+
+void ms_index_begin_transaction(Index* idx) {
+    if (idx && idx->db) {
+        sqlite3_exec(idx->db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
+    }
+}
+
+void ms_index_commit_transaction(Index* idx) {
+    if (idx && idx->db) {
+        sqlite3_exec(idx->db, "COMMIT TRANSACTION;", NULL, NULL, NULL);
     }
 }
 
@@ -77,7 +93,7 @@ int ms_index_insert_symbol(Index* idx, Symbol* sym) {
     if (!idx || !idx->db || !sym) return -1;
     
     const char *sql = "INSERT INTO symbols (name, kind, file, line, signature) VALUES (?, ?, ?, ?, ?);";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return -1;
 
@@ -100,7 +116,7 @@ int ms_index_insert_relationship(Index* idx, int from_id, int to_id, const char*
     if (!idx || !idx->db) return -1;
 
     const char *sql = "INSERT INTO relationships (from_id, to_id, type) VALUES (?, ?, ?);";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return -1;
 
@@ -119,16 +135,29 @@ int ms_index_insert_relationship(Index* idx, int from_id, int to_id, const char*
 
 static SymbolList* build_symbol_list_from_stmt(sqlite3_stmt *stmt) {
     SymbolList *list = calloc(1, sizeof(SymbolList));
+    if (!list) return NULL;
     list->capacity = 16;
     list->symbols = malloc(list->capacity * sizeof(Symbol));
+    if (!list->symbols) {
+        free(list);
+        return NULL;
+    }
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         if (list->count >= list->capacity) {
-            list->capacity *= 2;
-            list->symbols = realloc(list->symbols, list->capacity * sizeof(Symbol));
+            int new_cap = list->capacity * 2;
+            Symbol *new_syms = realloc(list->symbols, new_cap * sizeof(Symbol));
+            if (!new_syms) {
+                ms_symbol_list_free(list);
+                return NULL;
+            }
+            list->symbols = new_syms;
+            list->capacity = new_cap;
         }
 
-        Symbol *sym = &list->symbols[list->count++];
+        Symbol *sym = &list->symbols[list->count];
+        memset(sym, 0, sizeof(Symbol));
+
         const char *name = (const char*)sqlite3_column_text(stmt, 1);
         const char *kind = (const char*)sqlite3_column_text(stmt, 2);
         const char *file = (const char*)sqlite3_column_text(stmt, 3);
@@ -140,6 +169,16 @@ static SymbolList* build_symbol_list_from_stmt(sqlite3_stmt *stmt) {
         sym->file = file ? strdup(file) : NULL;
         sym->line = line;
         sym->signature = signature ? strdup(signature) : NULL;
+
+        if ((name && !sym->name) || (file && !sym->file) || (signature && !sym->signature)) {
+            if (sym->name) free(sym->name);
+            if (sym->file) free(sym->file);
+            if (sym->signature) free(sym->signature);
+            ms_symbol_list_free(list);
+            return NULL;
+        }
+        
+        list->count++;
     }
     return list;
 }
@@ -148,7 +187,7 @@ SymbolList* ms_index_query_symbol(Index* idx, const char* name) {
     if (!idx || !idx->db || !name) return NULL;
 
     const char *sql = "SELECT id, name, kind, file, line, signature FROM symbols WHERE name = ?;";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return NULL;
 
@@ -169,7 +208,7 @@ SymbolList* ms_index_query_callers(Index* idx, const char* name) {
         "JOIN symbols callee ON r.to_id = callee.id "
         "WHERE callee.name = ? AND r.type = 'calls';";
 
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return NULL;
 
@@ -183,7 +222,7 @@ SymbolList* ms_index_query_callers(Index* idx, const char* name) {
 int ms_index_delete_file_symbols(Index* idx, const char* file) {
     if (!idx || !idx->db || !file) return -1;
     const char *sql = "DELETE FROM symbols WHERE file = ?;";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return -1;
     sqlite3_bind_text(stmt, 1, file, -1, SQLITE_TRANSIENT);
@@ -195,17 +234,23 @@ int ms_index_delete_file_symbols(Index* idx, const char* file) {
 SymbolList* ms_index_find_feature(Index* idx, const char* keyword) {
     if (!idx || !idx->db || !keyword) return NULL;
     const char *sql = "SELECT id, name, kind, file, line, signature FROM symbols WHERE name LIKE ? OR signature LIKE ? LIMIT 10;";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return NULL;
     
-    char like_kw[256];
-    snprintf(like_kw, sizeof(like_kw), "%%%s%%", keyword);
+    char *like_kw = malloc(strlen(keyword) + 3);
+    if (!like_kw) {
+        sqlite3_finalize(stmt);
+        return NULL;
+    }
+    sprintf(like_kw, "%%%s%%", keyword);
+    
     sqlite3_bind_text(stmt, 1, like_kw, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, like_kw, -1, SQLITE_TRANSIENT);
     
     SymbolList *list = build_symbol_list_from_stmt(stmt);
     sqlite3_finalize(stmt);
+    free(like_kw);
     return list;
 }
 
@@ -217,7 +262,7 @@ SymbolList* ms_index_impact_direct(Index* idx, const char* name) {
         "JOIN relationships r ON t.id = r.to_id "
         "JOIN symbols f ON r.from_id = f.id "
         "WHERE f.name = ?;";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return NULL;
     sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
@@ -236,7 +281,7 @@ SymbolList* ms_index_impact_transitive(Index* idx, const char* name) {
         "JOIN relationships r1 ON t1.id = r1.to_id "
         "JOIN symbols f ON r1.from_id = f.id "
         "WHERE f.name = ? AND t2.id != t1.id AND t2.id != f.id;";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK) return NULL;
     sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);

@@ -15,6 +15,10 @@ static const char *filter_lang = NULL;
 static int process_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
     (void)sb;
 
+    if (typeflag == FTW_SL) {
+        return FTW_CONTINUE; // Explicitly skip symlinks
+    }
+
     if (typeflag == FTW_D) {
         const char *base = fpath + ftwbuf->base;
         if (strcmp(base, ".git") == 0 || strcmp(base, "node_modules") == 0 || strcmp(base, "vendor") == 0 || strcmp(base, "bin") == 0 || strcmp(base, ".memspace") == 0) {
@@ -35,7 +39,9 @@ static int process_file(const char *fpath, const struct stat *sb, int typeflag, 
                 SymbolList *list = ms_parse_file(fpath);
                 if (list) {
                     for (int i = 0; i < list->count; i++) {
-                        ms_index_insert_symbol(global_idx, &list->symbols[i]);
+                        if (ms_index_insert_symbol(global_idx, &list->symbols[i]) < 0) {
+                            // Insertion failed, keep going
+                        }
                     }
                     total_symbols += list->count;
                     total_files++;
@@ -55,7 +61,7 @@ int cmd_index(int argc, char **argv) {
         }
     }
 
-    struct stat st = {0};
+    struct stat st;
     if (stat(".memspace", &st) == -1) {
         fprintf(stderr, "Error: .memspace/ not found. Run init first.\n");
         return 1;
@@ -73,10 +79,14 @@ int cmd_index(int argc, char **argv) {
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
+    ms_index_begin_transaction(global_idx);
+
     int flags = FTW_PHYS | FTW_ACTIONRETVAL;
     if (nftw(".", process_file, 20, flags) == -1) {
         perror("nftw");
     }
+
+    ms_index_commit_transaction(global_idx);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double ms = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;

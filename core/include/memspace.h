@@ -58,7 +58,10 @@ SymbolList* ms_index_find_feature(Index* idx, const char* keyword);
 SymbolList* ms_index_impact_direct(Index* idx, const char* name);
 SymbolList* ms_index_impact_transitive(Index* idx, const char* name);
 
+void ms_index_begin_transaction(Index* idx);
+void ms_index_commit_transaction(Index* idx);
+
 /* Internal usage */
-SymbolList* ms_extract_symbols(TSTree* tree, TSLanguage *lang, const char* file_path, const char* source_code);
+SymbolList* ms_extract_symbols(TSTree* tree, TSLanguage *lang, const char* file_path, const char* source_code, uint32_t source_len);
 
 #endif /* MEMSPACE_H */
