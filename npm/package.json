@@ -1,6 +1,6 @@
 {
   "name": "memspace",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Repository intelligence engine for AI coding agents",
   "bin": {
     "memspace": "bin/memspace.js"
@@ -9,11 +9,11 @@
     "postinstall": "node install.js"
   },
   "optionalDependencies": {
-    "memspace-darwin-arm64": "0.1.7",
-    "memspace-darwin-x64": "0.1.7",
-    "memspace-linux-arm64": "0.1.7",
-    "memspace-linux-x64": "0.1.7",
-    "memspace-windows-x64": "0.1.7"
+    "memspace-darwin-arm64": "0.1.8",
+    "memspace-darwin-x64": "0.1.8",
+    "memspace-linux-arm64": "0.1.8",
+    "memspace-linux-x64": "0.1.8",
+    "memspace-windows-x64": "0.1.8"
   },
   "engines": {
     "node": ">=16"
