@@ -223,7 +223,9 @@ int cmd_serve(int argc, char **argv) {
     (void)argc;
     (void)argv;
 
+#ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
+#endif
 
     struct stat st;
     if (stat(".memspace/index.db", &st) != 0) {
