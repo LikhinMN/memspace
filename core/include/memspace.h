@@ -19,16 +19,20 @@ typedef struct {
 } Symbol;
 
 typedef struct {
-    Symbol *symbols;
-    int count;
-    int capacity;
-} SymbolList;
-
-typedef struct {
     char *from;
     char *to;
     char *type;
 } Relationship;
+
+typedef struct {
+    Symbol *symbols;
+    int count;
+    int capacity;
+    
+    Relationship *relationships;
+    int rel_count;
+    int rel_capacity;
+} SymbolList;
 
 struct sqlite3;
 
@@ -60,6 +64,8 @@ SymbolList* ms_index_impact_transitive(Index* idx, const char* name);
 
 void ms_index_begin_transaction(Index* idx);
 void ms_index_commit_transaction(Index* idx);
+void ms_index_add_unresolved_relationship(Index* idx, int from_id, const char* to_name, const char* type);
+void ms_index_resolve_relationships(Index* idx);
 
 /* Internal usage */
 SymbolList* ms_extract_symbols(TSTree* tree, TSLanguage *lang, const char* file_path, const char* source_code, uint32_t source_len);

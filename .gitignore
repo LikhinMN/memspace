@@ -2,3 +2,6 @@
 *.a
 bin/
 .memspace/
+npm/packages/*/bin/memspace
+npm/packages/*/bin/memspace.exe
+node_modules/

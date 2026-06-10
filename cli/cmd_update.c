@@ -49,8 +49,13 @@ int cmd_update(int argc, char **argv) {
             SymbolList *list = ms_parse_file(fname);
             if (list) {
                 for (int i = 0; i < list->count; i++) {
-                    if (ms_index_insert_symbol(idx, &list->symbols[i]) < 0) {
-                        // Keep going if one fails
+                    int id = ms_index_insert_symbol(idx, &list->symbols[i]);
+                    if (id >= 0 && list->relationships) {
+                        for (int j = 0; j < list->rel_count; j++) {
+                            if (strcmp(list->relationships[j].from, list->symbols[i].name) == 0) {
+                                ms_index_add_unresolved_relationship(idx, id, list->relationships[j].to, list->relationships[j].type);
+                            }
+                        }
                     }
                 }
                 total_symbols += list->count;
@@ -60,6 +65,7 @@ int cmd_update(int argc, char **argv) {
         }
     }
     
+    ms_index_resolve_relationships(idx);
     ms_index_commit_transaction(idx);
 
     pclose(pipe);

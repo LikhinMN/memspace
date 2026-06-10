@@ -1,6 +1,16 @@
 {
   "name": "memspace",
-  "version": "1.0.0",
-  "description": "Placeholder for npm package",
-  "main": "index.js"
+  "version": "0.1.0",
+  "description": "Repository intelligence engine for AI coding agents",
+  "bin": { "memspace": "bin/memspace.js" },
+  "scripts": { "postinstall": "node install.js" },
+  "optionalDependencies": {
+    "memspace-linux-x64":    "0.1.0",
+    "memspace-linux-arm64":  "0.1.0",
+    "memspace-darwin-x64":   "0.1.0",
+    "memspace-darwin-arm64": "0.1.0",
+    "memspace-win32-x64":    "0.1.0"
+  },
+  "engines": { "node": ">=16" },
+  "license": "MIT"
 }

@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x64
+            pkg: memspace-linux-x64
+          - os: ubuntu-latest
+            arch: arm64
+            pkg: memspace-linux-arm64
+          - os: macos-latest
+            arch: x64
+            pkg: memspace-darwin-x64
+          - os: macos-latest
+            arch: arm64
+            pkg: memspace-darwin-arm64
+          - os: windows-latest
+            arch: x64
+            pkg: memspace-win32-x64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'x64'
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+        
+      - name: Install dependencies (Ubuntu arm64)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
+        run: sudo apt-get update && sudo apt-get install -y build-essential gcc-aarch64-linux-gnu
+        
+      - name: Build (Ubuntu arm64 cross-compile)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
+        run: make CC=aarch64-linux-gnu-gcc
+        
+      - name: Build (Unix non-arm64)
+        if: matrix.os != 'windows-latest' && matrix.arch != 'arm64'
+        run: make
+        
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        run: make || nmake
+        
+      - name: Copy binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p npm/packages/${{ matrix.pkg }}/bin
+          cp bin/memspace npm/packages/${{ matrix.pkg }}/bin/memspace
+          
+      - name: Copy binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir npm\packages\${{ matrix.pkg }}\bin
+          copy bin\memspace.exe npm\packages\${{ matrix.pkg }}\bin\memspace.exe
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.pkg }}
+          path: npm/packages/${{ matrix.pkg }}/bin/

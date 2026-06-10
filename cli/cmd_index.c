@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+
 #include "memspace.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,8 +39,13 @@ static int process_file(const char *fpath, const struct stat *sb, int typeflag, 
                 SymbolList *list = ms_parse_file(fpath);
                 if (list) {
                     for (int i = 0; i < list->count; i++) {
-                        if (ms_index_insert_symbol(global_idx, &list->symbols[i]) < 0) {
-                            // Insertion failed, keep going
+                        int id = ms_index_insert_symbol(global_idx, &list->symbols[i]);
+                        if (id >= 0 && list->relationships) {
+                            for (int j = 0; j < list->rel_count; j++) {
+                                if (strcmp(list->relationships[j].from, list->symbols[i].name) == 0) {
+                                    ms_index_add_unresolved_relationship(global_idx, id, list->relationships[j].to, list->relationships[j].type);
+                                }
+                            }
                         }
                     }
                     total_symbols += list->count;
@@ -86,6 +91,7 @@ int cmd_index(int argc, char **argv) {
         perror("nftw");
     }
 
+    ms_index_resolve_relationships(global_idx);
     ms_index_commit_transaction(global_idx);
 
     clock_gettime(CLOCK_MONOTONIC, &end);

@@ -183,6 +183,39 @@ static SymbolList* build_symbol_list_from_stmt(sqlite3_stmt *stmt) {
     return list;
 }
 
+void ms_index_add_unresolved_relationship(Index* idx, int from_id, const char* to_name, const char* type) {
+    if (!idx || !idx->db || !to_name || !type) return;
+    
+    // Create temp table if not exists
+    sqlite3_exec(idx->db, "CREATE TABLE IF NOT EXISTS temp_rels (from_id INTEGER, to_name TEXT, type TEXT);", NULL, NULL, NULL);
+    
+    const char *sql = "INSERT INTO temp_rels (from_id, to_name, type) VALUES (?, ?, ?);";
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, from_id);
+        sqlite3_bind_text(stmt, 2, to_name, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, type, -1, SQLITE_TRANSIENT);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+}
+
+void ms_index_resolve_relationships(Index* idx) {
+    if (!idx || !idx->db) return;
+    
+    // Convert temp_rels into proper relationships using symbol names
+    const char *sql = 
+        "INSERT INTO relationships (from_id, to_id, type) "
+        "SELECT t.from_id, s.id, t.type "
+        "FROM temp_rels t "
+        "JOIN symbols s ON t.to_name = s.name;";
+        
+    sqlite3_exec(idx->db, sql, NULL, NULL, NULL);
+    
+    // Clean up
+    sqlite3_exec(idx->db, "DROP TABLE IF EXISTS temp_rels;", NULL, NULL, NULL);
+}
+
 SymbolList* ms_index_query_symbol(Index* idx, const char* name) {
     if (!idx || !idx->db || !name) return NULL;
 
@@ -221,14 +254,28 @@ SymbolList* ms_index_query_callers(Index* idx, const char* name) {
 
 int ms_index_delete_file_symbols(Index* idx, const char* file) {
     if (!idx || !idx->db || !file) return -1;
-    const char *sql = "DELETE FROM symbols WHERE file = ?;";
+    
+    // First delete relationships
+    const char *sql_rels = 
+        "DELETE FROM relationships WHERE "
+        "from_id IN (SELECT id FROM symbols WHERE file = ?) OR "
+        "to_id IN (SELECT id FROM symbols WHERE file = ?);";
     sqlite3_stmt *stmt = NULL;
-    int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
-    if (rc != SQLITE_OK) return -1;
-    sqlite3_bind_text(stmt, 1, file, -1, SQLITE_TRANSIENT);
-    rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
-    return (rc == SQLITE_DONE) ? 0 : -1;
+    if (sqlite3_prepare_v2(idx->db, sql_rels, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, file, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, file, -1, SQLITE_TRANSIENT);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+    
+    const char *sql = "DELETE FROM symbols WHERE file = ?;";
+    if (sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, file, -1, SQLITE_TRANSIENT);
+        int rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+        return (rc == SQLITE_DONE) ? 0 : -1;
+    }
+    return -1;
 }
 
 SymbolList* ms_index_find_feature(Index* idx, const char* keyword) {
