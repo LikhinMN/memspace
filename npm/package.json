@@ -1,6 +1,6 @@
 {
   "name": "memspace",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Repository intelligence engine for AI coding agents",
   "bin": {
     "memspace": "bin/memspace.js"
@@ -18,5 +18,9 @@
   "engines": {
     "node": ">=16"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LikhinMN/memspace.git"
+  }
 }

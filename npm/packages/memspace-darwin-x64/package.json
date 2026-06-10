@@ -1,11 +1,15 @@
 {
   "name": "memspace-darwin-x64",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "os": [
     "darwin"
   ],
   "cpu": [
     "x64"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LikhinMN/memspace.git"
+  }
 }
