@@ -14,25 +14,26 @@ static const char *filter_lang = NULL;
 
 static int process_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
     (void)sb;
+    (void)ftwbuf;
 
     if (typeflag == FTW_SL) {
-        return FTW_CONTINUE; // Explicitly skip symlinks
+        return 0; // Explicitly skip symlinks
     }
-
-    if (typeflag == FTW_D) {
-        const char *base = fpath + ftwbuf->base;
-        if (strcmp(base, ".git") == 0 || strcmp(base, "node_modules") == 0 || strcmp(base, "vendor") == 0 || strcmp(base, "bin") == 0 || strcmp(base, ".memspace") == 0) {
-            return FTW_SKIP_SUBTREE;
-        }
+    
+    // Check if path contains directories we want to ignore
+    if (strstr(fpath, "/.git/") || strstr(fpath, "/node_modules/") || 
+        strstr(fpath, "/vendor/") || strstr(fpath, "/bin/") || 
+        strstr(fpath, "/.memspace/")) {
+        return 0;
     }
 
     if (typeflag == FTW_F) {
         const char *ext = strrchr(fpath, '.');
         if (ext) {
             if (filter_lang) {
-                if (strcmp(filter_lang, "c") == 0 && strcmp(ext, ".c") != 0) return FTW_CONTINUE;
-                if (strcmp(filter_lang, "python") == 0 && strcmp(ext, ".py") != 0) return FTW_CONTINUE;
-                if (strcmp(filter_lang, "javascript") == 0 && strcmp(ext, ".js") != 0) return FTW_CONTINUE;
+                if (strcmp(filter_lang, "c") == 0 && strcmp(ext, ".c") != 0) return 0;
+                if (strcmp(filter_lang, "python") == 0 && strcmp(ext, ".py") != 0) return 0;
+                if (strcmp(filter_lang, "javascript") == 0 && strcmp(ext, ".js") != 0) return 0;
             }
 
             if (strcmp(ext, ".c") == 0 || strcmp(ext, ".py") == 0 || strcmp(ext, ".js") == 0) {
@@ -56,7 +57,7 @@ static int process_file(const char *fpath, const struct stat *sb, int typeflag, 
         }
     }
 
-    return FTW_CONTINUE;
+    return 0;
 }
 
 int cmd_index(int argc, char **argv) {
@@ -86,7 +87,7 @@ int cmd_index(int argc, char **argv) {
 
     ms_index_begin_transaction(global_idx);
 
-    int flags = FTW_PHYS | FTW_ACTIONRETVAL;
+    int flags = FTW_PHYS;
     if (nftw(".", process_file, 20, flags) == -1) {
         perror("nftw");
     }
