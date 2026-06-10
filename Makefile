@@ -1,6 +1,9 @@
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -Icore/include -Ivendor -Ivendor/tree-sitter/lib/include -D_GNU_SOURCE
-LDFLAGS = -lpthread -ldl -lm
+LDFLAGS = -lpthread -lm
+ifneq ($(OS),Windows_NT)
+LDFLAGS += -ldl
+endif
 
 CORE_SRCS = $(wildcard core/*.c)
 VENDOR_SRCS = vendor/sqlite3.c vendor/cJSON.c
