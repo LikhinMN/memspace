@@ -191,3 +191,56 @@ int ms_index_delete_file_symbols(Index* idx, const char* file) {
     sqlite3_finalize(stmt);
     return (rc == SQLITE_DONE) ? 0 : -1;
 }
+
+SymbolList* ms_index_find_feature(Index* idx, const char* keyword) {
+    if (!idx || !idx->db || !keyword) return NULL;
+    const char *sql = "SELECT id, name, kind, file, line, signature FROM symbols WHERE name LIKE ? OR signature LIKE ? LIMIT 10;";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) return NULL;
+    
+    char like_kw[256];
+    snprintf(like_kw, sizeof(like_kw), "%%%s%%", keyword);
+    sqlite3_bind_text(stmt, 1, like_kw, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, like_kw, -1, SQLITE_TRANSIENT);
+    
+    SymbolList *list = build_symbol_list_from_stmt(stmt);
+    sqlite3_finalize(stmt);
+    return list;
+}
+
+SymbolList* ms_index_impact_direct(Index* idx, const char* name) {
+    if (!idx || !idx->db || !name) return NULL;
+    const char *sql = 
+        "SELECT t.id, t.name, t.kind, t.file, t.line, t.signature "
+        "FROM symbols t "
+        "JOIN relationships r ON t.id = r.to_id "
+        "JOIN symbols f ON r.from_id = f.id "
+        "WHERE f.name = ?;";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) return NULL;
+    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+    SymbolList *list = build_symbol_list_from_stmt(stmt);
+    sqlite3_finalize(stmt);
+    return list;
+}
+
+SymbolList* ms_index_impact_transitive(Index* idx, const char* name) {
+    if (!idx || !idx->db || !name) return NULL;
+    const char *sql = 
+        "SELECT DISTINCT t2.id, t2.name, t2.kind, t2.file, t2.line, t2.signature "
+        "FROM symbols t2 "
+        "JOIN relationships r2 ON t2.id = r2.to_id "
+        "JOIN symbols t1 ON r2.from_id = t1.id "
+        "JOIN relationships r1 ON t1.id = r1.to_id "
+        "JOIN symbols f ON r1.from_id = f.id "
+        "WHERE f.name = ? AND t2.id != t1.id AND t2.id != f.id;";
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(idx->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) return NULL;
+    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+    SymbolList *list = build_symbol_list_from_stmt(stmt);
+    sqlite3_finalize(stmt);
+    return list;
+}

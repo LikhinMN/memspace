@@ -54,6 +54,9 @@ int ms_index_insert_relationship(Index* idx, int from_id, int to_id, const char*
 SymbolList* ms_index_query_symbol(Index* idx, const char* name);
 SymbolList* ms_index_query_callers(Index* idx, const char* name);
 int ms_index_delete_file_symbols(Index* idx, const char* file);
+SymbolList* ms_index_find_feature(Index* idx, const char* keyword);
+SymbolList* ms_index_impact_direct(Index* idx, const char* name);
+SymbolList* ms_index_impact_transitive(Index* idx, const char* name);
 
 /* Internal usage */
 SymbolList* ms_extract_symbols(TSTree* tree, TSLanguage *lang, const char* file_path, const char* source_code);
