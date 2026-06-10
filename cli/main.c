@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
         printf("  index   Index all supported files in the current directory\n");
         printf("          --lang <language>  Filter by language (c, python, javascript)\n");
         printf("  update  Update index for changed files\n");
-        printf("  serve   Start a language server (not implemented)\n");
+        printf("  serve   Start the MCP stdio server\n");
         return 0;
     }
 
